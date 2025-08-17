@@ -22,7 +22,6 @@
     "dotenv": "^17.2.1",
     "node-fetch": "^3.3.2",
     "random-js": "^2.1.0",
-    "weather": "^1.0.4",
     "weather.js": "^0.1.0"
   }
 }
