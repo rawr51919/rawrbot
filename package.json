@@ -1,0 +1,28 @@
+{
+  "name": "rawrbot",
+  "private": true,
+  "version": "1.0.0",
+  "description": "My own personal Discord bot. Has a few fun commands in here.",
+  "module": "index.ts",
+  "type": "module",
+  "author": "rawr51919",
+  "scripts": {
+    "start": "discraft start",
+    "build": "discraft build",
+    "dev": "discraft dev"
+  },
+  "devDependencies": {
+    "discraft": "^1.7.8",
+    "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "consola": "^3.4.2",
+    "discord.js": "^14.21.0",
+    "discord.js-minesweeper": "^1.1.0",
+    "dotenv": "^17.2.1",
+    "node-fetch": "^3.3.2",
+    "random-js": "^2.1.0",
+    "weather": "^1.0.4",
+    "weather.js": "^0.1.0"
+  }
+}
