@@ -9,10 +9,19 @@
   "scripts": {
     "start": "discraft start -r node",
     "build": "discraft build -b esbuild",
-    "dev": "discraft dev -b esbuild -r node"
+    "deploy": "vercel --prod",
+    "dev": "discraft dev -b esbuild -r node",
+    "test": "npx eslint . && npx jest"
   },
   "devDependencies": {
+    "@eslint/js": "^9.33.0",
+    "@jest/globals": "^30.0.5",
+    "@types/jest": "^30.0.0",
     "discraft": "^1.7.8",
+    "eslint": "^9.33.0",
+    "globals": "^16.3.0",
+    "jest": "^30.0.5",
+    "ts-jest": "^29.4.1",
     "typescript": "^5.9.2"
   },
   "dependencies": {
