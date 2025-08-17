@@ -26,7 +26,7 @@ const engineChoices = engineDefinitions.map(e => ({ name: `${e.name} (${e.code})
 
 export default {
   data: new SlashCommandBuilder()
-    .setName("random")
+    .setName("rng")
     .setDescription("Generates random numbers, choices, booleans, or dice rolls")
     .addStringOption(opt =>
       opt

@@ -8,7 +8,8 @@
   "author": "rawr51919",
   "scripts": {
     "start": "discraft start -r node",
-    "build": "discraft build -b esbuild",
+    "localbuild": "discraft build -b esbuild",
+    "build": "discraft vercel build -b esbuild",
     "deploy": "vercel --prod",
     "dev": "discraft dev -b esbuild -r node",
     "test": "npx eslint . && npx jest"
@@ -22,15 +23,22 @@
     "globals": "^16.3.0",
     "jest": "^30.0.5",
     "ts-jest": "^29.4.1",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "vercel": "^46.0.1"
   },
   "dependencies": {
+    "@vercel/node": "^5.3.13",
+    "axios": "^1.11.0",
     "consola": "^3.4.2",
+    "discord-api-types": "^0.38.20",
+    "discord-interactions": "^4.3.0",
     "discord.js": "^14.21.0",
     "discord.js-minesweeper": "^1.1.0",
     "dotenv": "^17.2.1",
+    "mongodb": "^6.18.0",
     "node-fetch": "^3.3.2",
     "random-js": "^2.1.0",
+    "raw-body": "^3.0.0",
     "weather.js": "^0.1.0"
   }
 }

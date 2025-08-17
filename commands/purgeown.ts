@@ -66,7 +66,7 @@ export default {
 
         // Bulk delete recent messages
         if (toDeleteRecent.length > 1 && isGuildTextChannel) {
-          await (channel as TextChannel | NewsChannel | BaseGuildTextChannel).bulkDelete(toDeleteRecent, true);
+          await (channel).bulkDelete(toDeleteRecent, true);
         } else {
           for (const msg of toDeleteRecent) {
             await msg.delete().catch(() => {});

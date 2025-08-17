@@ -73,7 +73,9 @@ export default {
         try {
           await replyMsg.react(isHeads ? "🟢" : "🔴");
           reactionsUsed++;
-        } catch { /* ignore reaction failures */ }
+        } catch {
+          console.error("Couldn't properly react heads/tails.");
+        }
       }
     }
 
