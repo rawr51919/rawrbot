@@ -51,7 +51,7 @@ export default {
     .addStringOption(opt =>
       opt
         .setName("moves")
-        .setDescription("Comma-separated choices for each round (e.g., Rock,Paper,Scissors). Missing moves will be auto-picked randomly")
+        .setDescription("Comma-separated choices for each round (e.g., Rock, Paper, Scissors).")
         .setRequired(false)
     ),
 

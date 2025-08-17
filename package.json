@@ -7,9 +7,9 @@
   "type": "module",
   "author": "rawr51919",
   "scripts": {
-    "start": "discraft start",
-    "build": "discraft build",
-    "dev": "discraft dev"
+    "start": "discraft start -r node",
+    "build": "discraft build -b esbuild",
+    "dev": "discraft dev -b esbuild -r node"
   },
   "devDependencies": {
     "discraft": "^1.7.8",
