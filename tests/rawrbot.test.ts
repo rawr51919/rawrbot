@@ -1,5 +1,7 @@
 import TestCommand from "../commands/test";
 import { ChatInputCommandInteraction } from "discord.js";
+import { MongoClient } from "mongodb";
+import { saveMessageEdit, getMessageEdits } from "../commands/messageinfo";
 
 // ---------------------------
 // Mock helpers
@@ -34,16 +36,19 @@ function createMessageMock(content: string, authorId = "author1") {
 function createInteractionMock(commandName = "test"): ChatInputCommandInteraction {
   return {
     commandName,
-    reply: jest.fn().mockResolvedValue(undefined), // <-- fixed for TypeScript
+    reply: jest.fn().mockResolvedValue(undefined),
     options: {
       getString: jest.fn(),
+      getInteger: jest.fn(),
+      getBoolean: jest.fn(),
+      getChannel: jest.fn(),
     },
     client: {
-      users: {
-        fetch: jest.fn(),
-      },
+      users: { fetch: jest.fn() },
     },
     user: { id: "user1", tag: "User#1234" },
+    deferReply: jest.fn().mockResolvedValue(undefined),
+    editReply: jest.fn().mockResolvedValue(undefined),
   } as unknown as ChatInputCommandInteraction;
 }
 
@@ -56,6 +61,7 @@ describe("Generic Discraft.js Bot Tests", () => {
 
   beforeEach(() => {
     client = createClientMock();
+    process.env.MONGO_URI = "mongodb://fake_uri"; // Mock MONGO_URI for MongoDB tests
   });
 
   // ---------------------------
@@ -79,7 +85,6 @@ describe("Generic Discraft.js Bot Tests", () => {
     };
 
     pingHandler(message);
-
     expect(message.channel.send).toHaveBeenCalledWith("Pong!");
   });
 
@@ -96,5 +101,54 @@ describe("Generic Discraft.js Bot Tests", () => {
   test("TestCommand command name and description are correct", () => {
     expect(TestCommand.data.name).toBe("test");
     expect(TestCommand.data.description).toBe("Check if the bot is online.");
+  });
+
+  // ---------------------------
+  // MongoDB message edits
+  // ---------------------------
+  describe("MongoDB message edits", () => {
+    let mockCollection: any;
+    let mockDb: any;
+
+    beforeEach(() => {
+      mockCollection = { updateOne: jest.fn().mockResolvedValue({}), findOne: jest.fn() };
+      mockDb = { collection: jest.fn(() => mockCollection) };
+
+      // Spy on connect
+      jest.spyOn(MongoClient.prototype, "connect").mockImplementation(async function (this: MongoClient) {
+        return this; // 'this' is typed as MongoClient
+      });
+
+      // Spy on db
+      jest.spyOn(MongoClient.prototype, "db").mockReturnValue(mockDb);
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    test("saveMessageEdit calls updateOne with correct params", async () => {
+      await saveMessageEdit("msg123", "Edited content");
+      expect(mockCollection.updateOne).toHaveBeenCalledWith(
+        { messageId: "msg123" },
+        { $push: { edits: expect.objectContaining({ content: "Edited content" }) } },
+        { upsert: true }
+      );
+    });
+
+    test("getMessageEdits returns edits from DB", async () => {
+      const fakeEdits = [{ content: "Edit1", editedAt: new Date() }];
+      mockCollection.findOne.mockResolvedValueOnce({ messageId: "msg123", edits: fakeEdits });
+
+      const edits = await getMessageEdits("msg123");
+      expect(edits).toEqual(fakeEdits);
+    });
+
+    test("getMessageEdits returns empty array if no document", async () => {
+      mockCollection.findOne.mockResolvedValueOnce(null);
+
+      const edits = await getMessageEdits("unknownMsg");
+      expect(edits).toEqual([]);
+    });
   });
 });

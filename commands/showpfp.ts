@@ -2,7 +2,7 @@ import { ChatInputCommandInteraction, SlashCommandBuilder, EmbedBuilder, Channel
 
 export default {
   data: new SlashCommandBuilder()
-    .setName("showicon")
+    .setName("showpfp")
     .setDescription("Shows the avatar/icon for a user, server, or group DM")
     .addUserOption(opt =>
       opt.setName("user").setDescription("Show this user's avatar").setRequired(false)

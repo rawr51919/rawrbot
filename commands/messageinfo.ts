@@ -1,46 +1,81 @@
-import {
-  ChatInputCommandInteraction,
-  SlashCommandBuilder,
-  EmbedBuilder,
-  TextChannel,
-  NewsChannel,
-  BaseGuildTextChannel,
-  DMChannel,
-  ChannelType,
-} from "discord.js";
+// messageinfo.ts
+import type { VercelRequest, VercelResponse } from "@vercel/node";
+import getRawBody from "raw-body";
+import { verifyKey } from "discord-interactions";
+import { InteractionType, InteractionResponseType } from "discord-api-types/v10";
+import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, TextChannel, NewsChannel, BaseGuildTextChannel, DMChannel, ChannelType } from "discord.js";
 import type { PartialDMChannel, PartialGroupDMChannel } from "discord.js";
-import { messageEdits } from "../index";
+import { MongoClient, Db } from "mongodb";
 
-function isMessageCapableChannel(
-  channel: any
-): channel is TextChannel | NewsChannel | BaseGuildTextChannel | DMChannel | PartialDMChannel | PartialGroupDMChannel {
-  return (
-    channel &&
-    ((channel instanceof TextChannel) ||
-      (channel instanceof NewsChannel) ||
-      (channel instanceof BaseGuildTextChannel) ||
-      (channel instanceof DMChannel) ||
-      (channel.type === ChannelType.DM) ||
-      (channel.type === ChannelType.GroupDM))
+//////////////////////
+// MongoDB Helpers  //
+//////////////////////
+
+let cachedClient: MongoClient | null = null;
+let cachedDb: Db | null = null;
+
+type MessageEdit = { content: string; editedAt: Date };
+
+async function connectMongo(): Promise<Db> {
+  if (cachedDb) return cachedDb;
+  if (!process.env.MONGO_URI) throw new Error("MONGO_URI not set");
+
+  const client = cachedClient ?? new MongoClient(process.env.MONGO_URI);
+  if (!cachedClient) {
+    await client.connect();
+    cachedClient = client;
+  }
+  cachedDb = client.db(process.env.MONGO_DB ?? "discord");
+  return cachedDb;
+}
+
+export async function saveMessageEdit(messageId: string, content: string, editedAt = new Date()) {
+  const db = await connectMongo();
+  const collection = db.collection<{ messageId: string; edits: MessageEdit[] }>("messageEdits");
+  await collection.updateOne(
+    { messageId },
+    { $push: { edits: { content, editedAt } } },
+    { upsert: true }
   );
 }
 
-export default {
+export async function getMessageEdits(messageId: string): Promise<MessageEdit[]> {
+  const db = await connectMongo();
+  const collection = db.collection<{ messageId: string; edits: MessageEdit[] }>("messageEdits");
+  const doc = await collection.findOne({ messageId });
+  return doc?.edits ?? [];
+}
+
+//////////////////////
+// Slash Command     //
+//////////////////////
+
+const showMessageCommand = {
   data: new SlashCommandBuilder()
-    .setName("showmessage")
+    .setName("messageinfo")
     .setDescription("Show a message's content including its edits")
-    .addStringOption(opt =>
-      opt.setName("id").setDescription("Message ID").setRequired(true)
-    )
-    .addChannelOption(opt =>
-      opt.setName("channel").setDescription("Channel of the message").setRequired(false)
-    ),
+    .addStringOption(opt => opt.setName("id").setDescription("Message ID").setRequired(true))
+    .addChannelOption(opt => opt.setName("channel").setDescription("Channel of the message").setRequired(false)),
 
   async execute({ interaction }: { interaction: ChatInputCommandInteraction }) {
     await interaction.deferReply({ ephemeral: true });
 
     const messageId = interaction.options.getString("id", true);
     const channel = interaction.options.getChannel("channel") ?? interaction.channel;
+
+    function isMessageCapableChannel(
+      channel: any
+    ): channel is TextChannel | NewsChannel | BaseGuildTextChannel | DMChannel | PartialDMChannel | PartialGroupDMChannel {
+      return (
+        channel &&
+        ((channel instanceof TextChannel) ||
+          (channel instanceof NewsChannel) ||
+          (channel instanceof BaseGuildTextChannel) ||
+          (channel instanceof DMChannel) ||
+          (channel.type === ChannelType.DM) ||
+          (channel.type === ChannelType.GroupDM))
+      );
+    }
 
     if (!isMessageCapableChannel(channel)) {
       await interaction.editReply("❌ You can only fetch messages from text channels or DMs/group DMs.");
@@ -50,8 +85,7 @@ export default {
     let message;
     try {
       message = await channel.messages.fetch(messageId);
-    } catch (err) {
-      console.error(err);
+    } catch {
       await interaction.editReply("❌ Could not fetch the message. Check the ID and channel.");
       return;
     }
@@ -63,7 +97,12 @@ export default {
     let originalContent = message.content || "No message content";
     if (originalContent.length > MAX_EDIT_LENGTH) originalContent = originalContent.slice(0, MAX_EDIT_LENGTH) + "…";
 
-    const edits = messageEdits.get(message.id) || [];
+    let edits: MessageEdit[] = [];
+    try {
+      edits = await getMessageEdits(message.id);
+    } catch (err) {
+      console.error("Failed to fetch message edits from DB", err);
+    }
 
     let mostRecentEdit = "No edits recorded.";
     let otherEdits = "None.";
@@ -81,7 +120,7 @@ export default {
           .map((e, i) => {
             let content = e.content || "*empty*";
             if (content.length > MAX_EDIT_LENGTH) content = content.slice(0, MAX_EDIT_LENGTH) + "…";
-            return `**Edit #${i + 1}** (${e.editedAt.toLocaleString()}):\n${content}`;
+            return `**Edit #${i + 1}** (${new Date(e.editedAt).toLocaleString()}):\n${content}`;
           })
           .join("\n\n");
       }
@@ -107,3 +146,54 @@ export default {
     });
   },
 };
+
+//////////////////////
+// Vercel Handler    //
+//////////////////////
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== "POST") return res.status(405).json({ error: "Method Not Allowed" });
+
+  const signature = req.headers["x-signature-ed25519"];
+  const timestamp = req.headers["x-signature-timestamp"];
+  const rawBody = await getRawBody(req);
+
+  if (!signature || !timestamp || !process.env.DISCORD_PUBLIC_KEY) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  let validRequest = false;
+  try {
+    validRequest = await verifyKey(rawBody, signature as string, timestamp as string, process.env.DISCORD_PUBLIC_KEY);
+  } catch {
+    return res.status(401).json({ error: "Invalid signature" });
+  }
+
+  if (!validRequest) return res.status(401).json({ error: "Invalid signature" });
+
+  const interaction = JSON.parse(rawBody.toString());
+
+  if (interaction.type === InteractionType.Ping) {
+    return res.status(200).json({ type: InteractionResponseType.Pong });
+  }
+
+  if (interaction.type === InteractionType.ApplicationCommand) {
+    const commandName = interaction.data.name.toLowerCase();
+    if (commandName === "showmessage") {
+      // Simulate a minimal interaction object for Discord.js command
+      await showMessageCommand.execute({ interaction });
+      return res.status(200).end();
+    }
+    return res.status(400).json({ error: "Unknown command" });
+  }
+
+  if (interaction.type === InteractionType.MessageComponent || interaction.type === InteractionType.ModalSubmit) {
+    const messageId = interaction.message?.id;
+    const oldContent = interaction.message?.content;
+    if (messageId && oldContent) {
+      await saveMessageEdit(messageId, oldContent);
+    }
+  }
+
+  return res.status(400).json({ error: "Unknown interaction type" });
+}

@@ -4,7 +4,7 @@ import globals from "globals";
 export default [
   js.configs.recommended,
   {
-    ignores: ["dist/**"], // <-- top-level ignores
+    ignores: ["dist/**", "api/**", ".discraft/**"], // <-- top-level ignores
   },
   {
     files: ["**/*.js", "**/*.cjs", "**/*.mjs"],
