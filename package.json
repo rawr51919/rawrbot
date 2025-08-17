@@ -9,7 +9,7 @@
   "scripts": {
     "start": "discraft start -r node",
     "localbuild": "discraft build -b esbuild",
-    "build": "discraft vercel build -b esbuild && cp -r ./api ./public",
+    "build": "discraft vercel build -b esbuild",
     "deploy": "vercel --prod",
     "dev": "discraft dev -b esbuild -r node",
     "test": "npx eslint . && npx jest"
