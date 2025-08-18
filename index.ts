@@ -54,9 +54,7 @@ async function getMessageEdits(messageId: string): Promise<MessageEdit[]> {
 async function handler(req: VercelRequest, res: VercelResponse) {
   logger.start("RawrBot Vercel handler invoked");
 
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method Not Allowed" });
-  }
+  if (req.method !== "POST") return res.status(405).json({ error: "Method Not Allowed" });
 
   const signature = req.headers["x-signature-ed25519"];
   const timestamp = req.headers["x-signature-timestamp"];
@@ -69,12 +67,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
 
   let validRequest = false;
   try {
-    validRequest = await verifyKey(
-      rawBody,
-      signature as string,
-      timestamp as string,
-      process.env.DISCORD_PUBLIC_KEY
-    );
+    validRequest = await verifyKey(rawBody, signature as string, timestamp as string, process.env.DISCORD_PUBLIC_KEY);
   } catch (err) {
     logger.error("Signature verification failed", { err });
     return res.status(401).json({ error: "Invalid signature" });
@@ -92,10 +85,10 @@ async function handler(req: VercelRequest, res: VercelResponse) {
 
   // --- Application Command ---
   if (interaction.type === InteractionType.ApplicationCommand) {
-    const commandName = interaction.data.name.toLowerCase();
-    const command = (commands as any)[commandName];
+    const commandName = interaction.data?.name?.toLowerCase();
+    const commandCandidate = (commands as any)[commandName];
 
-    if (!command) {
+    if (!commandCandidate) {
       logger.warn("Unknown command", { commandName });
       return res.status(400).json({ error: "Unknown command" });
     }
@@ -106,20 +99,19 @@ async function handler(req: VercelRequest, res: VercelResponse) {
         `https://discord.com/api/v10/interactions/${interaction.id}/${interaction.token}/callback`,
         {
           type: InteractionResponseType.DeferredChannelMessageWithSource,
-          data: { flags: command.data.initialEphemeral ? MessageFlags.Ephemeral : 0 },
+          data: { flags: commandCandidate.data?.initialEphemeral ? MessageFlags.Ephemeral : 0 },
         },
         { headers: { "Content-Type": "application/json" } }
       );
-    } catch (deferError) {
-      logger.error("Failed to defer command", { deferError });
+    } catch (err) {
+      logger.error("Failed to defer command", { err });
       return res.status(500).json({ error: "Failed to defer command" });
     }
 
     // Execute command
     let result;
     try {
-      result = await command.execute({ interaction, getMessageEdits, saveMessageEdit });
-      logger.debug("Command executed successfully", { commandName });
+      result = await commandCandidate.execute?.({ interaction, getMessageEdits, saveMessageEdit });
     } catch (err) {
       logger.error("Command execution failed", { commandName, err });
       result = { content: "An error occurred while processing your request.", flags: MessageFlags.Ephemeral };
@@ -129,13 +121,13 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       await axios.patch(
         `https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}/messages/@original`,
-        { content: result.content ?? "", flags: result.flags },
+        { content: result?.content ?? "", flags: result?.flags },
         { headers: { "Content-Type": "application/json" } }
       );
       logger.debug("Original response patched successfully");
       return res.status(200).end();
-    } catch (patchError) {
-      logger.error("Failed to patch original response", { patchError });
+    } catch (err) {
+      logger.error("Failed to patch original response", { err });
       return res.status(500).json({ error: "Failed to update response" });
     }
   }
@@ -159,6 +151,4 @@ async function handler(req: VercelRequest, res: VercelResponse) {
   return res.status(400).json({ error: "Unknown interaction type" });
 }
 
-export {
-  handler as default
-};
+export { handler as default };

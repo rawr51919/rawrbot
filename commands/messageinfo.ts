@@ -1,9 +1,14 @@
 // messageinfo.ts
-import type { VercelRequest, VercelResponse } from "@vercel/node";
-import getRawBody from "raw-body";
-import { verifyKey } from "discord-interactions";
-import { InteractionType, InteractionResponseType } from "discord-api-types/v10";
-import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, TextChannel, NewsChannel, BaseGuildTextChannel, DMChannel, ChannelType } from "discord.js";
+import {
+  SlashCommandBuilder,
+  ChatInputCommandInteraction,
+  EmbedBuilder,
+  TextChannel,
+  NewsChannel,
+  BaseGuildTextChannel,
+  DMChannel,
+  ChannelType,
+} from "discord.js";
 import type { PartialDMChannel, PartialGroupDMChannel } from "discord.js";
 import { MongoClient, Db } from "mongodb";
 
@@ -29,7 +34,11 @@ async function connectMongo(): Promise<Db> {
   return cachedDb;
 }
 
-export async function saveMessageEdit(messageId: string, content: string, editedAt = new Date()) {
+export async function saveMessageEdit(
+  messageId: string,
+  content: string,
+  editedAt = new Date()
+) {
   const db = await connectMongo();
   const collection = db.collection<{ messageId: string; edits: MessageEdit[] }>("messageEdits");
   await collection.updateOne(
@@ -50,12 +59,16 @@ export async function getMessageEdits(messageId: string): Promise<MessageEdit[]>
 // Slash Command     //
 //////////////////////
 
-const showMessageCommand = {
+export default {
   data: new SlashCommandBuilder()
     .setName("messageinfo")
     .setDescription("Show a message's content including its edits")
-    .addStringOption(opt => opt.setName("id").setDescription("Message ID").setRequired(true))
-    .addChannelOption(opt => opt.setName("channel").setDescription("Channel of the message").setRequired(false)),
+    .addStringOption(opt =>
+      opt.setName("id").setDescription("Message ID").setRequired(true)
+    )
+    .addChannelOption(opt =>
+      opt.setName("channel").setDescription("Channel of the message").setRequired(false)
+    ),
 
   async execute({ interaction }: { interaction: ChatInputCommandInteraction }) {
     await interaction.deferReply({ ephemeral: true });
@@ -146,54 +159,3 @@ const showMessageCommand = {
     });
   },
 };
-
-//////////////////////
-// Vercel Handler    //
-//////////////////////
-
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Method Not Allowed" });
-
-  const signature = req.headers["x-signature-ed25519"];
-  const timestamp = req.headers["x-signature-timestamp"];
-  const rawBody = await getRawBody(req);
-
-  if (!signature || !timestamp || !process.env.DISCORD_PUBLIC_KEY) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
-
-  let validRequest = false;
-  try {
-    validRequest = await verifyKey(rawBody, signature as string, timestamp as string, process.env.DISCORD_PUBLIC_KEY);
-  } catch {
-    return res.status(401).json({ error: "Invalid signature" });
-  }
-
-  if (!validRequest) return res.status(401).json({ error: "Invalid signature" });
-
-  const interaction = JSON.parse(rawBody.toString());
-
-  if (interaction.type === InteractionType.Ping) {
-    return res.status(200).json({ type: InteractionResponseType.Pong });
-  }
-
-  if (interaction.type === InteractionType.ApplicationCommand) {
-    const commandName = interaction.data.name.toLowerCase();
-    if (commandName === "showmessage") {
-      // Simulate a minimal interaction object for Discord.js command
-      await showMessageCommand.execute({ interaction });
-      return res.status(200).end();
-    }
-    return res.status(400).json({ error: "Unknown command" });
-  }
-
-  if (interaction.type === InteractionType.MessageComponent || interaction.type === InteractionType.ModalSubmit) {
-    const messageId = interaction.message?.id;
-    const oldContent = interaction.message?.content;
-    if (messageId && oldContent) {
-      await saveMessageEdit(messageId, oldContent);
-    }
-  }
-
-  return res.status(400).json({ error: "Unknown interaction type" });
-}
