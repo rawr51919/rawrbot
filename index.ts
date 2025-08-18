@@ -51,7 +51,7 @@ async function getMessageEdits(messageId: string): Promise<MessageEdit[]> {
 }
 
 // --- Vercel handler ---
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+async function handler(req: VercelRequest, res: VercelResponse) {
   logger.start("RawrBot Vercel handler invoked");
 
   if (req.method !== "POST") {
@@ -158,3 +158,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   logger.warn("Unknown interaction type", { type: interaction.type });
   return res.status(400).json({ error: "Unknown interaction type" });
 }
+
+export {
+  handler as default
+};
