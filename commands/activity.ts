@@ -9,7 +9,7 @@ export default {
         .setName("type")
         .setDescription("Type of activity")
         .setRequired(true)
-        .setChoices(
+        .addChoices(
           { name: "Playing", value: "PLAYING" },
           { name: "Streaming", value: "STREAMING" },
           { name: "Listening", value: "LISTENING" },
@@ -25,20 +25,28 @@ export default {
     ),
 
   async execute({ interaction }: { interaction: ChatInputCommandInteraction }) {
-
-    // Fetch dynamic owner ID
+    // Fetch bot owner ID dynamically
     const app = await interaction.client.application?.fetch();
     const ownerId = app?.owner?.id;
 
     if (interaction.user.id !== ownerId) {
-      await interaction.editReply({ content: "❌ Only the bot owner can use this command." });
+      await interaction.reply({ content: "❌ Only the bot owner can use this command.", ephemeral: true });
       return;
     }
 
     const typeString = interaction.options.getString("type", true);
     const text = interaction.options.getString("text", true);
 
-    const type = typeString as unknown as ActivityType;
+    // Map string to ActivityType enum
+    const typeMap: Record<string, ActivityType> = {
+      PLAYING: ActivityType.Playing,
+      STREAMING: ActivityType.Streaming,
+      LISTENING: ActivityType.Listening,
+      WATCHING: ActivityType.Watching,
+      COMPETING: ActivityType.Competing,
+    };
+
+    const type = typeMap[typeString.toUpperCase()];
 
     try {
       interaction.client.user?.setPresence({
@@ -46,7 +54,7 @@ export default {
         status: "online",
       });
 
-      await interaction.reply({ content: `✅ Status updated to: ${type} **${text}**`, ephemeral: true });
+      await interaction.reply({ content: `✅ Status updated to: **${typeString} ${text}**`, ephemeral: true });
     } catch (err) {
       await interaction.reply({ content: `❌ Failed to update status: ${(err as Error).message}`, ephemeral: true });
     }
