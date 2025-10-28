@@ -16,7 +16,7 @@ jobs:
       - name: Setup Node.js 22
         uses: actions/setup-node@v6
         with:
-          node-version: '22'
+          node-version: '24'
 
       - name: Install dependencies and run validate & test scripts with npm
         run: npm ci && npm run test
