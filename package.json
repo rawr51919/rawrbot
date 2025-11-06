@@ -34,7 +34,7 @@
     "discord.js": "^14.22.1",
     "discord.js-minesweeper": "^1.1.0",
     "dotenv": "^17.2.1",
-    "mongodb": "^6.18.0",
+    "mongodb": "^7.0.0",
     "node-fetch": "^3.3.2",
     "random-js": "^2.1.0",
     "raw-body": "^3.0.0",
