@@ -24,7 +24,7 @@
     "jest": "^30.0.5",
     "ts-jest": "^29.4.1",
     "typescript": "^5.9.2",
-    "vercel": "^49.0.0"
+    "vercel": "^50.0.0"
   },
   "dependencies": {
     "@vercel/node": "^5.3.15",
