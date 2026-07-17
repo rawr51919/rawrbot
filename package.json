@@ -37,7 +37,7 @@
     "mongodb": "^7.0.0",
     "node-fetch": "^3.3.2",
     "random-js": "^2.1.0",
-    "raw-body": "^3.0.0",
+    "raw-body": "^4.0.0",
     "weather.js": "^0.1.0"
   }
 }
